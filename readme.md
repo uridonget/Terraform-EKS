@@ -4,7 +4,9 @@
 
 그 부분 알아서 잘 수정해서 사용하세요! (아니면 스킵하고 콘솔에서 직접 추가해도 괜찮습니다~)
 
-테라폼 실행 순서
+# 테라폼 실행 순서
+
+## 클러스터 생성
 
 cd cluster
 
@@ -14,6 +16,8 @@ terraform plan
 
 terraform apply
 
+## Neves 팀원들에게 권한 부여 (이제 kubectl 명령어 사용할 수 있음)
+
 cd ../authenticate
 
 terraform init
@@ -21,6 +25,8 @@ terraform init
 terraform plan
 
 terraform apply
+
+## 서비스 배포
 
 cd ../apps
 

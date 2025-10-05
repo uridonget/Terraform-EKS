@@ -1,5 +1,4 @@
-# cluster/providers.tf
-
+# domain/providers.tf
 terraform {
   required_providers {
     aws = {
@@ -10,7 +9,5 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-northeast-2"
+  
 }
-
-data "aws_caller_identity" "current" {}

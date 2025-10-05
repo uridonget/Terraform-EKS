@@ -1,4 +1,4 @@
-# eks.tf
+# cluster/eks.tf
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"

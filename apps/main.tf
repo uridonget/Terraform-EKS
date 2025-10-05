@@ -32,3 +32,11 @@ data "terraform_remote_state" "auth" {
     path = "../authenticate/terraform.tfstate"
   }
 }
+
+data "terraform_remote_state" "database" {
+  backend = "local"
+
+  config = {
+    path = "../database/terraform.tfstate"
+  }
+}

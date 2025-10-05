@@ -1,11 +1,9 @@
 # authenticate/access.tf
 
-# Luckyseven 그룹 정보를 가져와서 멤버들의 ARN 목록을 확보합니다.
 data "aws_iam_group" "luckyseven" {
   group_name = "Luckyseven"
 }
 
-# Luckyseven 그룹 멤버들만 사용할 수 있는 IAM 역할을 생성합니다.
 resource "aws_iam_role" "eks_luckyseven_admin_role" {
   name = "eks-luckyseven-admin-role"
 

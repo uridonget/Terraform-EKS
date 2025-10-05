@@ -1,4 +1,4 @@
-# iam.tf
+# cluster/iam.tf
 
 data "http" "lbc_iam_policy" {
   url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json"

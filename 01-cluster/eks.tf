@@ -5,7 +5,7 @@ module "eks" {
   version = "20.8.4"
 
   cluster_name    = "my-eks-cluster"
-  cluster_version = "1.29"
+  cluster_version = "1.33"
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
@@ -20,6 +20,7 @@ module "eks" {
       desired_size = 3
 
       instance_types = ["t3.medium"]
+      ami_type = "AL2023_x86_64_STANDARD"
     }
   }
 

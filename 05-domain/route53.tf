@@ -7,7 +7,6 @@ data "aws_route53_zone" "main" {
 
 data "aws_lb" "ingress_alb" {
   tags = {
-        "elbv2.k8s.aws/cluster" = data.terraform_remote_state.cluster.outputs.cluster_name
     "ingress.k8s.aws/stack"   = "neves/main-ingress" # <namespace>/<ingress-name>
   }
 }

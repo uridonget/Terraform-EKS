@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mail-server-config
+  labels:
+    app: mail-server
+  namespace: neves
+data:
+  GMAIL_USER: "${gmail_user}"
+  GMAIL_PASSWORD: "${gmail_password}"
+  USER_SERVER_URL: "user-server-service.neves.svc.cluster.local"

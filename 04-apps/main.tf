@@ -21,7 +21,7 @@ data "terraform_remote_state" "cluster" {
   backend = "local"
 
   config = {
-    path = "../cluster/terraform.tfstate"
+    path = "../01-cluster/terraform.tfstate"
   }
 }
 
@@ -29,7 +29,7 @@ data "terraform_remote_state" "auth" {
   backend = "local"
 
   config = {
-    path = "../authenticate/terraform.tfstate"
+    path = "../02-authenticate/terraform.tfstate"
   }
 }
 
@@ -37,6 +37,6 @@ data "terraform_remote_state" "database" {
   backend = "local"
 
   config = {
-    path = "../database/terraform.tfstate"
+    path = "../03-database/terraform.tfstate"
   }
 }

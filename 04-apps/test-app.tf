@@ -60,10 +60,42 @@ resource "kubernetes_manifest" "ingress" {
   }))
 
   depends_on = [
-    kubernetes_manifest.user_server_service
+    kubernetes_manifest.user_server_service,
+    helm_release.aws_load_balancer_controller
   ]
 
-  timeouts {
-    delete = "15m"
-  }
+}
+
+# ==============================================================================
+# Mail Server
+# ==============================================================================
+
+data "aws_secretsmanager_secret_version" "gmail_auth" {
+  secret_id = "my-eks-gmail-auth"
+}
+
+locals {
+  gmail_auth = jsondecode(data.aws_secretsmanager_secret_version.gmail_auth.secret_string)
+}
+
+resource "kubernetes_manifest" "mail_server_service" {
+  manifest = yamldecode(file("${path.module}/manifests/service/mail-server-service.yaml"))
+  depends_on = [kubernetes_namespace.neves]
+}
+
+resource "kubernetes_manifest" "mail_server_configmap" {
+  manifest = yamldecode(templatefile("${path.module}/manifests/configmap/mail-server-configmap.yaml", {
+    gmail_user     = local.gmail_auth.gmailuser
+    gmail_password = local.gmail_auth.gmailpassword
+  }))
+
+  depends_on = [kubernetes_namespace.neves]
+}
+
+resource "kubernetes_manifest" "mail_server_deployment" {
+  manifest = yamldecode(file("${path.module}/manifests/deployment/mail-server-deploy.yaml"))
+  depends_on = [
+    kubernetes_manifest.mail_server_configmap,
+    kubernetes_manifest.mail_server_service
+  ]
 }

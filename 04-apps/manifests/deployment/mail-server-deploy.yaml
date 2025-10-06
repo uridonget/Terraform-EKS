@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mail-server
+  namespace: neves
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mail-server
+  template:
+    metadata:
+      labels:
+        app: mail-server
+    spec:
+      containers:
+      - name: mail-server
+        image: public.ecr.aws/k8s0f8l3/neves/mail_server:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: mail-server-config

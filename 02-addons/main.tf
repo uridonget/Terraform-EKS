@@ -63,20 +63,20 @@ module "alb_controller_irsa" {
 
   oidc_providers = {
     main = {
-      # provider_arn은 기존 코드 방식에 맞춰 data.terraform_remote_state.eks를 참조하도록 수정
       provider_arn               = data.terraform_remote_state.eks.outputs.oidc_provider_arn
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
 }
 
-# 2. Helm을 사용하여 AWS Load Balancer Controller 설치
+# AWS Load Balancer Controller 설치
+
 resource "helm_release" "aws_lb_controller" {
   name       = "aws-load-balancer-controller"
   namespace  = "kube-system"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
-  version    = "1.7.1" # 특정 버전으로 고정하여 안정성 확보
+  version    = "1.7.1"
 
   values = [
     yamlencode({
@@ -93,10 +93,56 @@ resource "helm_release" "aws_lb_controller" {
       }
     })
   ]
+
+  depends_on = [
+    module.alb_controller_irsa
+  ]
 }
 
+# ExternalDNS (Terraform으로는 IAM 역할 및 연동까지 설정)
 
-### 추가한 부분 끝
+module "external_dns_irsa" {
+  source    = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version   = "5.39.0"
+
+  role_name = "${data.terraform_remote_state.eks.outputs.cluster_name}-external-dns"
+
+  role_policy_arns = {
+    policy = aws_iam_policy.external_dns.arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn               = data.terraform_remote_state.eks.outputs.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:external-dns"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "external_dns" {
+  name        = "${data.terraform_remote_state.eks.outputs.cluster_name}-external-dns"
+  description = "Allows ExternalDNS to modify Route 53"
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = ["arn:aws:route53:::hostedzone/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListHostedZones", "route53:ListResourceRecordSets"]
+        Resource = ["*"]
+      }
+    ]
+  })
+}
+
+output "external_dns_iam_role_arn" {
+  description = "IAM role ARN for ExternalDNS"
+  value       = module.external_dns_irsa.iam_role_arn
+}
 
 # ISTIO 설치
 
@@ -121,7 +167,8 @@ resource "helm_release" "istiod" {
   wait       = true
 
   depends_on = [
-    helm_release.istio_base
+    helm_release.istio_base,
+    helm_release.aws_lb_controller
   ]
 }
 
@@ -132,7 +179,7 @@ resource "helm_release" "istio_ingress" {
   namespace  = "istio-system"
   version    = "1.26.1"
   timeout    = 600
-  wait       = false
+  wait       = true
 
   values = [
     yamlencode({

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-server
+  namespace: tarot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: email-server
+  template:
+    metadata:
+      labels:
+        app: email-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
+        prometheus.io/port: "15020"
+    spec:
+      containers:
+      - name: email-server
+        image: public.ecr.aws/h4h3p3x3/tarot-jeong/email-server:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: email-server-secret
+        - configMapRef:
+            name: email-server-config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

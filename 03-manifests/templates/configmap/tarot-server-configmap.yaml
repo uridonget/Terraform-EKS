@@ -1,0 +1,17 @@
+# tarot-server-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tarot-server-config
+  labels:
+    app: tarot-server
+  namespace: tarot
+data:
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+  CORS_ALLOWED_ORIGIN: "https://haechan.net"
+  S3_BUCKET_NAME: "tarot-jeong"
+  EMAIL_SERVER_URL: "http://email-server-service.tarot.svc.cluster.local"
+  USER_SERVER_URL: "http://user-server-service.tarot.svc.cluster.local"
+  CLOUDFRONT_ENDPOINT: "https://d2yzln6f92x3hm.cloudfront.net"
+  

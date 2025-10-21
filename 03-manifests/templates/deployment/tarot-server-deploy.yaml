@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarot-server
+  namespace: tarot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tarot-server
+  template:
+    metadata:
+      labels:
+        app: tarot-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/stats/prometheus"
+        prometheus.io/port: "15020" 
+    spec:
+      containers:
+      - name: tarot-server
+        image: public.ecr.aws/h4h3p3x3/tarot-jeong/tarot-server:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: tarot-server-secret
+        - configMapRef:
+            name: tarot-server-config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

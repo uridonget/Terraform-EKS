@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-server
+  namespace: tarot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-server
+  template:
+    metadata:
+      labels:
+        app: user-server
+    spec:
+      containers:
+      - name: user-server
+        image: public.ecr.aws/h4h3p3x3/tarot-jeong/user-server:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: user-server-secret
+        - configMapRef:
+            name: user-server-config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

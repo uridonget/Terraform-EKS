@@ -1,0 +1,47 @@
+# istio-virtualservice.yaml
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-routes
+  namespace: istio-system
+spec:
+  hosts:
+  - "api.haechan.net"
+  gateways:
+  - tarot-gw
+  http:
+  - match:
+    - uri:
+        prefix: "/users"
+    route:
+    - destination:
+        host: user-server-service.tarot.svc.cluster.local
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: "/tarot"
+    route:
+    - destination:
+        host: tarot-server-service.tarot.svc.cluster.local
+        port:
+          number: 80
+
+  - match:
+    - uri:
+        prefix: "/grafana"
+    route:
+    - destination:
+        host: prometheus-grafana.monitoring.svc.cluster.local
+        port:
+          number: 80
+
+  - match:
+    - uri:
+        prefix: "/kiali"
+    route:
+    - destination:
+        host: kiali.istio-system.svc.cluster.local
+        port:
+          number: 20001

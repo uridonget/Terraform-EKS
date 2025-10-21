@@ -1,0 +1,31 @@
+# values.yaml
+
+dbHost: ""
+dbPort: "5432"
+dbUser: ""
+dbPassword: ""
+dbName: ""
+redisHost: ""
+redisPort: "6379"
+redisPassword: ""
+jwtSecretKey: ""
+jwtAlgorithm: "HS256"
+externalDnsIamArn: ""
+
+tarotServer:
+  awsAccessKeyId: ""
+  awsSecretAccessKey: ""
+  geminiApiKey: ""
+  cloudFrontKeyId: ""
+  cloudFrontPrivateKey: |
+    "-----BEGIN PRIVATE KEY-----
+    ...
+    -----END PRIVATE KEY-----
+    "
+
+userServer:
+  # 없습니다.
+  
+emailServer:
+  mailUsername: ""
+  mailPassword: ""

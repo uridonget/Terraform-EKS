@@ -1,0 +1,14 @@
+# email-server-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: email-server-config
+  labels:
+    app: email-server
+  namespace: tarot
+data:
+  MAIL_FROM: "zonginvade12@gmail.com"
+  MAIL_PORT: "587"
+  MAIL_SERVER: "smtp.gmail.com"
+  MAIL_FROM_NAME: "Tarot Jeong"

@@ -1,0 +1,30 @@
+# podmonitor.yaml
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxies
+  namespace: istio-system
+  labels:
+    release: prometheus
+spec:
+  selector: {}
+  namespaceSelector:
+    any: true
+  podMetricsEndpoints:
+  - path: /stats/prometheus
+    interval: 30s
+    port: http-envoy-prom
+    relabelings:
+    - action: keep
+      sourceLabels: [__meta_kubernetes_pod_container_name]
+      regex: istio-proxy
+    - action: drop
+      sourceLabels: [__meta_kubernetes_pod_phase]
+      regex: (Succeeded|Failed)
+    - sourceLabels: [__meta_kubernetes_namespace]
+      action: replace
+      targetLabel: namespace
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      action: replace
+      targetLabel: pod_name

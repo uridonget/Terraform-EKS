@@ -1,0 +1,33 @@
+# user-server-hpa.yaml
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: user-server-hpa
+  namespace: tarot
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user-server
+
+  minReplicas: 1
+  maxReplicas: 5
+
+  metrics:
+  # CPU 사용률 80%를 기준으로 스케일링
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+  # Pod당 평균 초당 요청 수를 기준으로 스케일링
+  - type: Pods
+    pods:
+      metric:
+        name: istio_requests_per_second
+      target:
+        type: AverageValue    # 모든 Pod의 평균값을 사용
+        averageValue: "10"    # Pod당 평균 초당 10개의 요청을 목표로 설정

@@ -1,0 +1,16 @@
+# email-server-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: email-server-service
+  namespace: tarot
+spec:
+  selector:
+    app: email-server
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP

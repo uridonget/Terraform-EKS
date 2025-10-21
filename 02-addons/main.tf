@@ -1,26 +1,5 @@
 # 02-addons/main.tf
 
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.10"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.20"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = ">= 2.8"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.region
-}
-
 data "terraform_remote_state" "eks" {
   backend = "local"
 
@@ -29,36 +8,12 @@ data "terraform_remote_state" "eks" {
   }
 }
 
-provider "kubernetes" {
-  host                   = data.terraform_remote_state.eks.outputs.cluster_endpoint
-  cluster_ca_certificate = base64decode(data.terraform_remote_state.eks.outputs.cluster_certificate_authority_data)
-
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", data.terraform_remote_state.eks.outputs.cluster_name]
-  }
-}
-
-provider "helm" {
-  kubernetes = {
-    host                   = data.terraform_remote_state.eks.outputs.cluster_endpoint
-    cluster_ca_certificate = base64decode(data.terraform_remote_state.eks.outputs.cluster_certificate_authority_data)
-
-    exec = {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", data.terraform_remote_state.eks.outputs.cluster_name]
-    }
-  }
-}
+# IRSA
 
 module "alb_controller_irsa" {
   source    = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version   = "5.39.0"
-
   role_name = "${data.terraform_remote_state.eks.outputs.cluster_name}-alb-controller"
-
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
@@ -99,13 +54,13 @@ resource "helm_release" "aws_lb_controller" {
   ]
 }
 
-# ExternalDNS (Terraform으로는 IAM 역할 및 연동까지 설정)
+# External DNS
 
 module "external_dns_irsa" {
   source    = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version   = "5.39.0"
 
-  role_name = "${data.terraform_remote_state.eks.outputs.cluster_name}-external-dns"
+  role_name = "${var.name_prefix}-external-dns"
 
   role_policy_arns = {
     policy = aws_iam_policy.external_dns.arn
@@ -120,8 +75,9 @@ module "external_dns_irsa" {
 }
 
 resource "aws_iam_policy" "external_dns" {
-  name        = "${data.terraform_remote_state.eks.outputs.cluster_name}-external-dns"
+  name        = "${var.name_prefix}-external-dns"
   description = "Allows ExternalDNS to modify Route 53"
+
   policy = jsonencode({
     Version   = "2012-10-17"
     Statement = [
@@ -144,7 +100,7 @@ output "external_dns_iam_role_arn" {
   value       = module.external_dns_irsa.iam_role_arn
 }
 
-# ISTIO 설치
+# Istio Base 설치
 
 resource "helm_release" "istio_base" {
   name             = "istio-base"
@@ -152,32 +108,45 @@ resource "helm_release" "istio_base" {
   repository       = "https://istio-release.storage.googleapis.com/charts"
   namespace        = "istio-system"
   create_namespace = true
-  version          = "1.26.1"
+  version          = "1.27.1"
   timeout          = 300
   wait             = true
 }
+
+# Istiod 설치
 
 resource "helm_release" "istiod" {
   name       = "istiod"
   chart      = "istiod"
   repository = "https://istio-release.storage.googleapis.com/charts"
   namespace  = "istio-system"
-  version    = "1.26.1"
+  version    = "1.27.1"
   timeout    = 600
   wait       = true
 
   depends_on = [
     helm_release.istio_base,
-    helm_release.aws_lb_controller
+    helm_release.aws_lb_controller,
+    null_resource.wait_for_prometheus_crds
+  ]
+
+  values = [
+    yamlencode({
+      meshConfig = {
+        enablePrometheusMerge = true
+      }
+    })
   ]
 }
+
+# Istio Ingress 설치
 
 resource "helm_release" "istio_ingress" {
   name       = "istio-ingress"
   chart      = "gateway"
   repository = "https://istio-release.storage.googleapis.com/charts"
   namespace  = "istio-system"
-  version    = "1.26.1"
+  version    = "1.27.1"
   timeout    = 600
   wait       = true
 
@@ -187,7 +156,7 @@ resource "helm_release" "istio_ingress" {
         webhookTimeoutSeconds = 60
       }
       service = {
-        type = "LoadBalancer"
+        type = "ClusterIP"
         annotations = {
           "service.beta.kubernetes.io/aws-load-balancer-type"            = "nlb"
           "service.beta.kubernetes.io/aws-load-balancer-scheme"          = "internet-facing"
@@ -199,4 +168,194 @@ resource "helm_release" "istio_ingress" {
   depends_on = [
     helm_release.istiod
   ]
+}
+
+resource "kubernetes_labels" "istio_injection" {
+  for_each = toset(var.istio_enabled_namespaces)
+  api_version = "v1"
+  kind        = "Namespace"
+
+  metadata {
+    name = each.key
+  }
+
+  labels = {
+    "istio-injection" = "enabled"
+  }
+
+  depends_on = [
+    helm_release.istiod
+  ]
+}
+
+# Prometheus & Grafana 설치
+
+resource "helm_release" "prometheus" {
+  name             = "prometheus"
+  repository       = "https://prometheus-community.github.io/helm-charts"
+  chart            = "kube-prometheus-stack"
+  version          = "67.2.0"
+  namespace        = "monitoring"
+  create_namespace = true
+  timeout          = 600
+  wait             = true
+
+  depends_on = [
+    helm_release.aws_lb_controller
+  ]
+
+  values = [
+    yamlencode({
+      alertmanager = {
+        persistence = { enabled = false }
+      }
+      prometheus = {
+        prometheusSpec = {
+          storageSpec = {}
+          serviceMonitorNamespaceSelector = {
+            matchNames = [
+              "monitoring",
+              "istio-system"
+            ]
+          }
+          podMonitorNamespaceSelector = {
+            matchNames = [
+              "monitoring",
+              "istio-system"
+            ]
+          }
+        }
+      }
+      grafana = {
+        persistence = { enabled = false }
+        adminPassword = var.grafana_admin_password
+
+        "grafana.ini" = {
+          server = {
+            root_url = "https://api.haechan.net/grafana"
+            serve_from_sub_path = true
+          }
+        }
+      }
+    })
+  ]
+}
+
+# Prometheus CRD가 생성될 때까지 대기
+
+resource "null_resource" "wait_for_prometheus_crds" {
+  depends_on = [
+    helm_release.prometheus
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+      kubectl wait --for=condition=Established crd/podmonitors.monitoring.coreos.com --timeout=120s
+      kubectl wait --for=condition=Established crd/servicemonitors.monitoring.coreos.com --timeout=120s
+    EOT
+  }
+}
+
+# Metrics Server 설치
+
+resource "helm_release" "metrics_server" {
+  name       = "metrics-server"
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = "metrics-server"
+  version    = "3.12.0"
+  namespace  = "kube-system"
+
+  depends_on = [
+    helm_release.aws_lb_controller
+  ]
+
+  values = [
+    yamlencode({
+      args = [
+        "--kubelet-insecure-tls"
+      ]
+    })
+  ]
+}
+
+# Prometheus Adapter 설치
+
+resource "helm_release" "prometheus_adapter" {
+  name       = "prometheus-adapter"
+  repository = "https://prometheus-community.github.io/helm-charts"
+  chart      = "prometheus-adapter"
+  version    = "4.11.0"
+  namespace  = "monitoring"
+
+  depends_on = [
+    helm_release.prometheus
+  ]
+
+  values = [
+    yamlencode({
+      prometheus = {
+        url  = "http://prometheus-kube-prometheus-prometheus.monitoring.svc"
+        port = 9090
+      }
+      rules = {
+        default = false
+        custom = [
+          {
+            seriesQuery = "istio_requests_total{reporter=\"destination\",destination_workload_namespace!=\"\",pod_name!=\"\"}"
+            resources = {
+              overrides = {
+                destination_workload_namespace = { resource = "namespace" }
+                pod_name                       = { resource = "pod" }
+              }
+            }
+            name = {
+              matches = "^(.*)_total$"
+              as      = "istio_requests_per_second"
+            }
+            metricsQuery = "sum(rate(<<.Series>>{<<.LabelMatchers>>,reporter=\"destination\"}[2m])) by (<<.GroupBy>>)"
+          }
+        ]
+      }
+    })
+  ]
+}
+
+# Kiali 설치
+
+resource "helm_release" "kiali" {
+  name             = "kiali"
+  repository       = "https://kiali.org/helm-charts"
+  chart            = "kiali-server"
+  version          = "2.2.0"
+  namespace        = "istio-system"
+  create_namespace = false
+
+  depends_on = [
+    helm_release.prometheus,
+    helm_release.istiod
+  ]
+
+  values = [
+    yamlencode({
+      auth = {
+        strategy = "anonymous"
+      }
+      external_services = {
+        prometheus = {
+          url = "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+        }
+      }
+      deployment = {
+        istio_namespace = "istio-system"
+      }
+    })
+  ]
+}
+
+# Namespace tarot
+
+resource "kubernetes_namespace" "tarot" {
+  metadata {
+    name = "tarot"
+  } 
 }

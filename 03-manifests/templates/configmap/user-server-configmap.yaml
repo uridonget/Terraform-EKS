@@ -1,0 +1,14 @@
+# user-server-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-server-config
+  labels:
+    app: user-server
+  namespace: tarot
+data:
+  ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+  EMAIL_SERVER_URL: "http://email-server-service.tarot.svc.cluster.local"
+  TAROT_SERVER_URL: "http://tarot-server-service.tarot.svc.cluster.local"
+  CORS_ALLOWED_ORIGIN: "https://haechan.net"

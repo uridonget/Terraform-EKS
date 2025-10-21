@@ -1,33 +1,19 @@
-주의! 이 테라폼은 Team Neves에 맞춰진 테라폼입니다.
+## 반드시 variables.tf 파일과 values.yaml 파일을 수정해서 배포하세요!
 
-특히! authenticate에서 특정 팀 사람들에게 권한을 부여하도록 설정되어있습니다.
+실행 순서
 
-그 부분 알아서 잘 수정해서 사용하세요! (아니면 스킵하고 콘솔에서 직접 추가해도 괜찮습니다~)
-
-테라폼 실행 순서
-
-cd cluster
+cd 01-cluster
 
 terraform init
-
-terraform plan
-
 terraform apply
 
-cd ../authenticate
+cd ..
+cd 02-addons
 
 terraform init
-
 terraform plan
 
-terraform apply
+cd ..
+cd 03-manifests
 
-cd ../apps
-
-terraform init
-
-terraform plan
-
-terraform apply
-
-manifests 파일을 바꿔서 배포하고싶은 사람들은 반드시 apps/test-app.tf 파일도 수정하세요!
+helm install tarot-jeong . -f secret-values.yaml --namespace tarot --create-namespace
